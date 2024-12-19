@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Headless CMS</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <header class="mb-4">
+            <h1 class="text-3xl font-bold text-center text-gray-800">Headless CMS</h1>
+        </header>
+
+        <!-- New Article Button -->
+        <section class="mb-6 text-center">
+            <button id="new-article" class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
+                Create New Article
+            </button>
+        </section>
+
+        <!-- Articles List -->
+        <section class="bg-white p-6 rounded shadow">
+            <h2 class="text-xl font-bold mb-4">Articles</h2>
+            <ul id="articles-list" class="list-disc pl-6">
+                <!-- Articles will be dynamically added here -->
+            </ul>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const articlesList = document.getElementById('articles-list');
+            const newArticleButton = document.getElementById('new-article');
+
+            // Redirect to editor for new article creation
+            newArticleButton.addEventListener('click', () => {
+                window.location.href = 'editer.html';
+            });
+
+            // Load Articles
+            const loadArticles = async () => {
+                try {
+                    const response = await fetch('http://127.0.0.1:8080/api/articles');
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.statusText}`);
+                    }
+
+                    const articles = await response.json();
+                    articlesList.innerHTML = '';
+
+                    articles.forEach(article => {
+                        const listItem = document.createElement('li');
+                        listItem.classList.add('mb-2');
+
+                        const articleContent = document.createElement('div');
+                        articleContent.textContent = `${article.title} - ${article.is_draft ? 'Draft' : 'Published'}`;
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.classList.add('bg-red-500', 'text-white', 'p-1', 'rounded', 'ml-2', 'hover:bg-red-600');
+                        deleteButton.addEventListener('click', async () => {
+                            try {
+                                const deleteResponse = await fetch(`http://127.0.0.1:8080/api/articles/${article.id}`, {
+                                    method: 'DELETE',
+                                });
+                                if (!deleteResponse.ok) {
+                                    throw new Error(`Error: ${deleteResponse.statusText}`);
+                                }
+                                alert('Article deleted successfully.');
+                                loadArticles();
+                            } catch (error) {
+                                console.error('Failed to delete article:', error);
+                                alert('Failed to delete the article. Please try again.');
+                            }
+                        });
+
+                        const editButton = document.createElement('button');
+                        editButton.textContent = 'Edit';
+                        editButton.classList.add('bg-yellow-500', 'text-white', 'p-1', 'rounded', 'ml-2', 'hover:bg-yellow-600');
+                        editButton.addEventListener('click', () => {
+                            window.location.href = `editer.html?id=${article.id}`;
+                        });
+
+                        listItem.appendChild(articleContent);
+                        listItem.appendChild(editButton);
+                        listItem.appendChild(deleteButton);
+                        articlesList.appendChild(listItem);
+                    });
+                } catch (error) {
+                    console.error('Failed to load articles:', error);
+                    alert('Failed to load articles. Please try again.');
+                }
+            };
+
+            loadArticles();
+        });
+    </script>
+</body>
+</html>
