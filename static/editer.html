@@ -54,189 +54,191 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const articleId = urlParams.get('id');
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const articleId = urlParams.get('id');
 
-            const titleInput = document.getElementById('title');
-            const contentEditable = document.getElementById('content');
-            const isDraftCheckbox = document.getElementById('is-draft');
-            const saveButton = document.getElementById('save-article');
-            const editorTitle = document.getElementById('editor-title');
-            const thumbnailInput = document.getElementById('thumbnail');
-            const thumbnailPreview = document.getElementById('thumbnail-preview');
-            const thumbnailDropArea = document.getElementById('thumbnail-drop-area');
+    const titleInput = document.getElementById('title');
+    const contentEditable = document.getElementById('content');
+    const isDraftCheckbox = document.getElementById('is-draft');
+    const saveButton = document.getElementById('save-article');
+    const editorTitle = document.getElementById('editor-title');
+    const thumbnailInput = document.getElementById('thumbnail');
+    const thumbnailPreview = document.getElementById('thumbnail-preview');
+    const thumbnailDropArea = document.getElementById('thumbnail-drop-area');
 
-            let thumbnailUrl = '';
+    let thumbnailUrl = '';
 
-            // Prevent new tab opening on image click
-            contentEditable.addEventListener('click', (event) => {
-                if (event.target.tagName === 'IMG') {
-                    event.preventDefault();
+    // Prevent default drag-and-drop behavior (e.g., opening images in a new tab)
+    contentEditable.addEventListener('dragover', (event) => {
+        event.preventDefault();
+    });
+
+    contentEditable.addEventListener('drop', (event) => {
+        event.preventDefault();
+        handleContentImageDrop(event);
+    });
+
+    // Handle Thumbnail Upload
+    thumbnailDropArea.addEventListener('click', () => thumbnailInput.click());
+    thumbnailInput.addEventListener('change', (event) => {
+        handleThumbnailUpload(event.target.files);
+    });
+
+    thumbnailDropArea.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        thumbnailDropArea.classList.add('bg-gray-200');
+    });
+
+    thumbnailDropArea.addEventListener('dragleave', () => {
+        thumbnailDropArea.classList.remove('bg-gray-200');
+    });
+
+    thumbnailDropArea.addEventListener('drop', (event) => {
+        event.preventDefault();
+        thumbnailDropArea.classList.remove('bg-gray-200');
+        handleThumbnailUpload(event.dataTransfer.files);
+    });
+
+    const handleThumbnailUpload = async (files) => {
+        if (files.length > 0) {
+            const formData = new FormData();
+            formData.append('file', files[0]);
+
+            try {
+                const response = await fetch('http://127.0.0.1:8080/api/upload-image', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
                 }
-            });
 
-            // Prevent default drag-and-drop behavior (e.g., opening images in new tab)
-            contentEditable.addEventListener('dragover', (event) => {
-                event.preventDefault();
-            });
+                thumbnailUrl = await response.text();
+                thumbnailPreview.src = thumbnailUrl.trim();
+                thumbnailPreview.classList.remove('hidden');
+            } catch (error) {
+                console.error('Failed to upload thumbnail:', error);
+                alert('Failed to upload the thumbnail. Please try again.');
+            }
+        }
+    };
 
-            contentEditable.addEventListener('drop', (event) => {
-                event.preventDefault();
-                handleContentImageDrop(event);
-            });
+    const handleContentImageDrop = async (event) => {
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            const formData = new FormData();
+            formData.append('file', files[0]);
 
-            // Thumbnail Upload Logic
-            thumbnailDropArea.addEventListener('click', () => thumbnailInput.click());
+            try {
+                const response = await fetch('http://127.0.0.1:8080/api/upload-image', {
+                    method: 'POST',
+                    body: formData,
+                });
 
-            thumbnailInput.addEventListener('change', (event) => {
-                handleThumbnailUpload(event.target.files);
-            });
-
-            thumbnailDropArea.addEventListener('dragover', (event) => {
-                event.preventDefault();
-                thumbnailDropArea.classList.add('bg-gray-200');
-            });
-
-            thumbnailDropArea.addEventListener('dragleave', () => {
-                thumbnailDropArea.classList.remove('bg-gray-200');
-            });
-
-            thumbnailDropArea.addEventListener('drop', (event) => {
-                event.preventDefault();
-                thumbnailDropArea.classList.remove('bg-gray-200');
-                handleThumbnailUpload(event.dataTransfer.files);
-            });
-
-            const handleThumbnailUpload = async (files) => {
-                if (files.length > 0) {
-                    const formData = new FormData();
-                    formData.append('file', files[0]);
-
-                    try {
-                        const response = await fetch('http://127.0.0.1:8080/api/upload-image', {
-                            method: 'POST',
-                            body: formData,
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`Error: ${response.statusText}`);
-                        }
-
-                        thumbnailUrl = await response.text();
-                        thumbnailPreview.src = thumbnailUrl.trim();
-                        thumbnailPreview.classList.remove('hidden');
-                    } catch (error) {
-                        console.error('Failed to upload thumbnail:', error);
-                        alert('Failed to upload the thumbnail. Please try again.');
-                    }
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
                 }
-            };
 
-            const handleContentImageDrop = async (event) => {
-                const files = event.dataTransfer.files;
-                if (files.length > 0) {
-                    const formData = new FormData();
-                    formData.append('file', files[0]);
+                const imageUrl = await response.text();
+                const markdownImage = `![Uploaded Image](${imageUrl.trim()})`;
 
-                    try {
-                        const response = await fetch('http://127.0.0.1:8080/api/upload-image', {
-                            method: 'POST',
-                            body: formData,
-                        });
+                // Insert Markdown image at caret position
+                insertAtCaret(contentEditable, markdownImage);
+            } catch (error) {
+                console.error('Failed to upload image:', error);
+                alert('Failed to upload the image. Please try again.');
+            }
+        }
+    };
 
-                        if (!response.ok) {
-                            throw new Error(`Error: ${response.statusText}`);
-                        }
+    const insertAtCaret = (editableElement, text) => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
 
-                        const imageUrl = await response.text();
+            const textNode = document.createTextNode(text);
+            range.insertNode(textNode);
 
-                        const img = document.createElement('img');
-                        img.src = imageUrl.trim();
-                        img.alt = 'Uploaded Image';
-                        img.classList.add('max-w-full', 'h-auto', 'mt-2');
+            // Move caret to the end of the inserted text
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } else {
+            // Append at the end if no selection
+            editableElement.appendChild(document.createTextNode(text));
+        }
+    };
 
-                        const selection = document.getSelection();
-
-                        // Check if a selection exists
-                        if (selection && selection.rangeCount > 0) {
-                            const range = selection.getRangeAt(0);
-                            range.insertNode(img);
-                        } else {
-                            // If no selection, append to the end
-                            contentEditable.appendChild(img);
-                        }
-                    } catch (error) {
-                        console.error('Failed to upload image:', error);
-                        alert('Failed to upload the image. Please try again.');
-                    }
+    const loadArticle = async () => {
+        if (articleId) {
+            try {
+                const response = await fetch(`http://127.0.0.1:8080/api/articles/${articleId}`);
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
                 }
-            };
 
-            const loadArticle = async () => {
-                if (articleId) {
-                    try {
-                        const response = await fetch(`http://127.0.0.1:8080/api/articles/${articleId}`);
-                        if (!response.ok) {
-                            throw new Error(`Error: ${response.statusText}`);
-                        }
+                const article = await response.json();
+                titleInput.value = article.title;
+                contentEditable.innerText = article.content; // Markdownとして挿入
+                isDraftCheckbox.checked = article.is_draft;
 
-                        const article = await response.json();
-                        titleInput.value = article.title;
-                        contentEditable.innerHTML = article.content;
-                        isDraftCheckbox.checked = article.is_draft;
-
-                        if (article.thumbnail) {
-                            thumbnailUrl = article.thumbnail;
-                            thumbnailPreview.src = thumbnailUrl;
-                            thumbnailPreview.classList.remove('hidden');
-                        }
-                    } catch (error) {
-                        console.error('Failed to load article:', error);
-                        alert('Failed to load the article. Please try again.');
-                    }
-                } else {
-                    editorTitle.textContent = 'Create New Article';
+                if (article.thumbnail) {
+                    thumbnailUrl = article.thumbnail;
+                    thumbnailPreview.src = thumbnailUrl;
+                    thumbnailPreview.classList.remove('hidden');
                 }
-            };
+            } catch (error) {
+                console.error('Failed to load article:', error);
+                alert('Failed to load the article. Please try again.');
+            }
+        } else {
+            editorTitle.textContent = 'Create New Article';
+        }
+    };
 
-            const saveArticle = async () => {
-                const articleData = {
-                    title: titleInput.value,
-                    content: contentEditable.innerHTML,
-                    is_draft: isDraftCheckbox.checked,
-                    thumbnail: thumbnailUrl,
-                };
+    const saveArticle = async () => {
+        const articleContent = contentEditable.innerText; // Markdown形式のテキストをそのまま取得
 
-                const url = articleId
-                    ? `http://127.0.0.1:8080/api/articles/${articleId}`
-                    : 'http://127.0.0.1:8080/api/articles';
-                const method = articleId ? 'PUT' : 'POST';
+        const articleData = {
+            title: titleInput.value,
+            content: articleContent,
+            is_draft: isDraftCheckbox.checked,
+            thumbnail: thumbnailUrl,
+        };
 
-                try {
-                    const response = await fetch(url, {
-                        method,
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(articleData),
-                    });
+        const url = articleId
+            ? `http://127.0.0.1:8080/api/articles/${articleId}`
+            : 'http://127.0.0.1:8080/api/articles';
+        const method = articleId ? 'PUT' : 'POST';
 
-                    if (!response.ok) {
-                        throw new Error(`Error: ${response.statusText}`);
-                    }
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(articleData),
+            });
 
-                    alert(`Article ${articleId ? 'updated' : 'created'} successfully.`);
-                    window.location.href = 'index.html';
-                } catch (error) {
-                    console.error(`Failed to ${articleId ? 'update' : 'create'} article:`, error);
-                    alert(`Failed to ${articleId ? 'update' : 'create'} the article. Please try again.`);
-                }
-            };
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
 
-            saveButton.addEventListener('click', saveArticle);
-            loadArticle();
-        });
+            alert(`Article ${articleId ? 'updated' : 'created'} successfully.`);
+            window.location.href = 'index.html';
+        } catch (error) {
+            console.error(`Failed to ${articleId ? 'update' : 'create'} article:`, error);
+            alert(`Failed to ${articleId ? 'update' : 'create'} the article. Please try again.`);
+        }
+    };
+
+    saveButton.addEventListener('click', saveArticle);
+    loadArticle();
+});
     </script>
 </body>
 </html>

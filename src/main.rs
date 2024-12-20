@@ -19,7 +19,18 @@ struct Article {
     title: Option<String>,
     content: Option<String>,
     is_draft: bool,
-    thumbnail: Option<String>, // サムネイルフィールドを追加
+    thumbnail: Option<String>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+// 記事一覧専用の構造体
+#[derive(Serialize, Deserialize)]
+struct ListArticle {
+    id: i64,
+    title: Option<String>,
+    is_draft: bool,
+    thumbnail: Option<String>,
     created_at: Option<String>,
     updated_at: Option<String>,
 }
@@ -30,7 +41,7 @@ struct CreateArticle {
     title: String,
     content: String,
     is_draft: bool,
-    thumbnail: Option<String>, // サムネイルフィールドを追加
+    thumbnail: Option<String>,
 }
 
 // 記事更新のリクエスト構造体
@@ -39,7 +50,7 @@ struct UpdateArticle {
     title: Option<String>,
     content: Option<String>,
     is_draft: Option<bool>,
-    thumbnail: Option<String>, // サムネイルフィールドを追加
+    thumbnail: Option<String>,
 }
 
 // メイン関数
@@ -70,25 +81,21 @@ async fn main() -> std::io::Result<()> {
             )
             .app_data(web::Data::new(pool.clone()))
             .service(fs::Files::new("/uploads", "./uploads").show_files_listing())
-            // 1. 記事一覧専用エンドポイントを先に定義
             .service(
                 web::resource("/api/articles/list")
                     .route(web::get().to(list_articles)),
             )
-            // 2. 通常の/articlesエンドポイント
             .service(
                 web::resource("/api/articles")
                     .route(web::post().to(create_article))
                     .route(web::get().to(get_articles)),
             )
-            // 3. 単一記事エンドポイント
             .service(
                 web::resource("/api/articles/{id}")
                     .route(web::get().to(get_article))
                     .route(web::put().to(update_article))
                     .route(web::delete().to(delete_article)),
             )
-            // 4. 画像アップロードエンドポイント
             .service(
                 web::resource("/api/upload-image")
                     .route(web::post().to(upload_image)),
@@ -141,8 +148,8 @@ async fn get_articles(pool: web::Data<sqlx::SqlitePool>) -> impl Responder {
 // 記事一覧専用の取得エンドポイント
 async fn list_articles(pool: web::Data<sqlx::SqlitePool>) -> impl Responder {
     let articles = sqlx::query_as!(
-        Article,
-        "SELECT id, title, content, is_draft, thumbnail, created_at, updated_at FROM articles ORDER BY created_at DESC"
+        ListArticle,
+        "SELECT id, title, is_draft, thumbnail, created_at, updated_at FROM articles ORDER BY created_at DESC"
     )
     .fetch_all(pool.get_ref())
     .await;
